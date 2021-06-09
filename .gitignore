@@ -1,0 +1,8 @@
+# Environments
+.env
+py_async/*
+.idea/*
+__pycache__/*
+
+# Drafts
+drafts/*
