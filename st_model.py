@@ -1,3 +1,6 @@
+from io import BytesIO
+import copy
+import numpy as np
 from PIL import Image
 
 import torch
@@ -5,59 +8,21 @@ import torch.nn as nn
 import torch.nn.functional as func
 import torch.optim as optim
 
-import matplotlib.pyplot as plt
-
 import torchvision.transforms as transforms
-import torchvision.models as models
-
-import copy
-
-# нормирование размера изображения и преведение к удобному формату
-imsize = 128
-loader = transforms.Compose([
-    transforms.Resize(imsize),
-    transforms.CenterCrop(imsize),
-    transforms.ToTensor()])
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def image_loader(image_name):
+    loader = transforms.Compose([
+        transforms.Resize(128),
+        transforms.CenterCrop(128),
+        transforms.ToTensor()])
     image = Image.open(image_name)
     image = loader(image).unsqueeze(0)
     return image.to(device, torch.float)
 
-
-style_img = image_loader("gdrive/MyDrive/DL/images/van_gogh0.jpg")
-content_img = image_loader("gdrive/MyDrive/DL/images/photo1.jpg")
-
-
-# функция для отрисовки изображения
-
-unloader = transforms.ToPILImage()
-
-plt.ion()
-
-
-def imshow(tensor, title=None):
-    image = tensor.cpu().clone()
-    image = image.squeeze(0)
-    image = unloader(image)
-    plt.imshow(image)
-    if title is not None:
-        plt.title(title)
-    plt.pause(0.001)
-
-
-plt.figure()
-imshow(style_img, title='Style Image')
-
-plt.figure()
-imshow(content_img, title='Content Image')
-
-
-# классы для определения расстояний стиля и контента изображений
 
 class ContentLoss(nn.Module):
     # среднеквадратичная ошибка контента input'а и target'а
@@ -97,23 +62,25 @@ cnn_normalization_std = torch.tensor([0.229, 0.224, 0.225])
 content_layers_default = ['conv_4']
 style_layers_default = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
 
-cnn = models.vgg19(pretrained=True).features.eval()
+cnn = torch.load('vgg/vgg19.pth').eval()
 
 
 class Normalization(nn.Module):
     def __init__(self, mean, std):
         super(Normalization, self).__init__()
-        self.mean = torch.tensor(mean).view(-1, 1, 1)
-        self.std = torch.tensor(std).view(-1, 1, 1)
+        # self.mean = torch.tensor(mean).view(-1, 1, 1)
+        # self.std = torch.tensor(std).view(-1, 1, 1)
+        self.mean = mean.clone().detach().view(-1, 1, 1)
+        self.std = std.clone().detach().view(-1, 1, 1)
 
     def forward(self, img):
         return (img - self.mean) / self.std
 
 
-def get_style_model_and_losses(conv_net, normalization_mean, normalization_std,
-                               style_img, content_img,
-                               content_layers=content_layers_default,
-                               style_layers=style_layers_default):
+def get_style_model_and_losses(content_img, style_img,
+                               conv_net,
+                               normalization_mean,
+                               normalization_std):
     conv_net = copy.deepcopy(conv_net)
 
     normalization = Normalization(normalization_mean, normalization_std)
@@ -140,13 +107,13 @@ def get_style_model_and_losses(conv_net, normalization_mean, normalization_std,
 
         model.add_module(name, layer)
 
-        if name in content_layers:
+        if name in content_layers_default:
             target = model(content_img).detach()
             content_loss = ContentLoss(target)
             model.add_module("content_loss_{}".format(i), content_loss)
             content_losses.append(content_loss)
 
-        if name in style_layers:
+        if name in style_layers_default:
             target_feature = model(style_img).detach()
             style_loss = StyleLoss(target_feature)
             model.add_module("style_loss_{}".format(i), style_loss)
@@ -166,13 +133,17 @@ def get_input_optimizer(input_img):
     return optimizer
 
 
-def run_style_transfer(conv_net, normalization_mean, normalization_std,
-                       content_img, style_img, input_img, num_steps=500,
+def run_style_transfer(content_img, style_img, input_img,
+                       conv_net=cnn,
+                       normalization_mean=cnn_normalization_mean,
+                       normalization_std=cnn_normalization_std,
+                       num_steps=500,
                        style_weight=100000, content_weight=1):
-    print('Building the style transfer model..')
-    model, style_losses, content_losses = get_style_model_and_losses(conv_net,
-                                                                     normalization_mean, normalization_std, style_img,
-                                                                     content_img)
+    model, style_losses, content_losses = get_style_model_and_losses(content_img,
+                                                                     style_img,
+                                                                     conv_net,
+                                                                     normalization_mean,
+                                                                     normalization_std)
     optimizer = get_input_optimizer(input_img)
 
     print('Optimizing..')
@@ -211,12 +182,10 @@ def run_style_transfer(conv_net, normalization_mean, normalization_std,
         optimizer.step(closure)
 
     input_img.data.clamp_(0, 1)
+    output_img = np.rollaxis(input_img.detach().numpy()[0], 0, 3)
+    result = Image.fromarray(np.uint8(output_img * 255))
+    to_bytes = BytesIO()
+    result.save(to_bytes, 'PNG')
+    result = to_bytes.seek(0)
 
-    return input_img
-
-
-input_img = content_img.clone()
-plt.figure()
-imshow(input_img, title='Input Image')
-output = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
-                            content_img, style_img, input_img)
+    return result

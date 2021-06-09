@@ -1,7 +1,7 @@
 import logging
 from decouple import config
 from flask import Flask
-from aiogram import Bot, Dispatcher  # , executor
+from aiogram import Bot, Dispatcher, executor
 
 
 app = Flask(__name__)
@@ -19,5 +19,5 @@ dp = Dispatcher(bot)
 
 
 if __name__ == '__main__':
-    # executor.start_polling(dp, skip_updates=True)
-    app.run()
+    executor.start_polling(dp, skip_updates=True)
+    # app.run()
