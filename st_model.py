@@ -1,3 +1,4 @@
+import asyncio
 from io import BytesIO
 import copy
 import numpy as np
@@ -11,22 +12,19 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
 def image_loader(image_name):
     loader = transforms.Compose([
-        transforms.Resize(128),
-        transforms.CenterCrop(128),
+        transforms.Resize(384),
+        transforms.CenterCrop(384),
         transforms.ToTensor()])
     image = Image.open(image_name)
     image = loader(image).unsqueeze(0)
-    return image.to(device, torch.float)
+    return image.to(torch.float)
 
 
 class ContentLoss(nn.Module):
     # среднеквадратичная ошибка контента input'а и target'а
-    def __init__(self, target, ):
+    def __init__(self, target):
         super(ContentLoss, self).__init__()
         self.target = target.detach()
         self.loss = func.mse_loss(self.target, self.target)
@@ -56,20 +54,9 @@ class StyleLoss(nn.Module):
         return inp
 
 
-cnn_normalization_mean = torch.tensor([0.485, 0.456, 0.406])
-cnn_normalization_std = torch.tensor([0.229, 0.224, 0.225])
-
-content_layers_default = ['conv_4']
-style_layers_default = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
-
-cnn = torch.load('vgg/vgg19.pth').eval()
-
-
 class Normalization(nn.Module):
     def __init__(self, mean, std):
         super(Normalization, self).__init__()
-        # self.mean = torch.tensor(mean).view(-1, 1, 1)
-        # self.std = torch.tensor(std).view(-1, 1, 1)
         self.mean = mean.clone().detach().view(-1, 1, 1)
         self.std = std.clone().detach().view(-1, 1, 1)
 
@@ -77,11 +64,12 @@ class Normalization(nn.Module):
         return (img - self.mean) / self.std
 
 
-def get_style_model_and_losses(content_img, style_img,
-                               conv_net,
-                               normalization_mean,
-                               normalization_std):
+def get_style_model_and_losses(content_img, style_img, conv_net,
+                               normalization_mean, normalization_std):
     conv_net = copy.deepcopy(conv_net)
+
+    content_layers_default = ['conv_4']
+    style_layers_default = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
 
     normalization = Normalization(normalization_mean, normalization_std)
 
@@ -133,22 +121,29 @@ def get_input_optimizer(input_img):
     return optimizer
 
 
-def run_style_transfer(content_img, style_img, input_img,
-                       conv_net=cnn,
-                       normalization_mean=cnn_normalization_mean,
-                       normalization_std=cnn_normalization_std,
-                       num_steps=500,
-                       style_weight=100000, content_weight=1):
-    model, style_losses, content_losses = get_style_model_and_losses(content_img,
-                                                                     style_img,
-                                                                     conv_net,
-                                                                     normalization_mean,
-                                                                     normalization_std)
+async def run_style_transfer(content_img, style_img,
+                             num_steps=300, style_weight=100000, content_weight=1):
+    content_img = image_loader(content_img)
+    style_img = image_loader(style_img)
+    input_img = content_img.clone()
+
+    # torch.save(content_img, 'images/content_img.pt')
+    # torch.save(style_img, 'images/style_img.pt')
+
+    normalization_mean = torch.tensor([0.485, 0.456, 0.406])
+    normalization_std = torch.tensor([0.229, 0.224, 0.225])
+
+    conv_net = torch.load('vgg/vgg19.pth').eval()
+
+    model, style_losses, content_losses = get_style_model_and_losses(content_img, style_img, conv_net,
+                                                                     normalization_mean, normalization_std)
     optimizer = get_input_optimizer(input_img)
 
     print('Optimizing..')
     run = [0]
     while run[0] <= num_steps:
+
+        await asyncio.sleep(0)
 
         def closure():
             input_img.data.clamp_(0, 1)
@@ -172,9 +167,9 @@ def run_style_transfer(content_img, style_img, input_img,
 
             run[0] += 1
             if run[0] % 50 == 0:
-                print("run {}:".format(run))
-                print('Style Loss : {:4f} Content Loss: {:4f}'.format(
-                    style_score.item(), content_score.item()))
+                print("step {}:".format(run))
+                print('Style Loss: {:4f} Content Loss: {:4f}'.format(
+                    style_score, content_score))
                 print()
 
             return style_score + content_score
@@ -184,8 +179,8 @@ def run_style_transfer(content_img, style_img, input_img,
     input_img.data.clamp_(0, 1)
     output_img = np.rollaxis(input_img.detach().numpy()[0], 0, 3)
     result = Image.fromarray(np.uint8(output_img * 255))
-    to_bytes = BytesIO()
-    result.save(to_bytes, 'PNG')
-    result = to_bytes.seek(0)
+    result_to_bytes = BytesIO()
+    result.save(result_to_bytes, 'PNG')
+    result_to_bytes.seek(0)
 
-    return result
+    return result_to_bytes

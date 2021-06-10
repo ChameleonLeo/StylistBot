@@ -1,7 +1,7 @@
 import torch
 
-default_content_image = torch.FloatTensor
-default_style_image = torch.FloatTensor
+default_content_image = torch.load('images/content_img.pt')
+default_style_image = torch.load('images/style_img.pt')
 
 
 class Images:
