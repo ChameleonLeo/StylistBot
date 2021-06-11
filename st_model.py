@@ -127,9 +127,6 @@ async def run_style_transfer(content_img, style_img,
     style_img = image_loader(style_img)
     input_img = content_img.clone()
 
-    # torch.save(content_img, 'images/content_img.pt')
-    # torch.save(style_img, 'images/style_img.pt')
-
     normalization_mean = torch.tensor([0.485, 0.456, 0.406])
     normalization_std = torch.tensor([0.229, 0.224, 0.225])
 
@@ -180,7 +177,7 @@ async def run_style_transfer(content_img, style_img,
     output_img = np.rollaxis(input_img.detach().numpy()[0], 0, 3)
     result = Image.fromarray(np.uint8(output_img * 255))
     result_to_bytes = BytesIO()
-    result.save(result_to_bytes, 'PNG')
+    result.save(result_to_bytes, 'JPEG')
     result_to_bytes.seek(0)
 
     return result_to_bytes
