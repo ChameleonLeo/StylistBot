@@ -2,9 +2,11 @@ import os
 import random
 from main import bot
 
+import torchvision.transforms as transforms
 from PIL import Image
 from io import BytesIO
 import numpy as np
+import torch
 
 
 class Images:
@@ -34,6 +36,16 @@ async def set_random_default_set():
     content_image = open(f'images/content/{content_name}', 'rb')
     style_image = open(f'images/style/{style_name}', 'rb')
     return content_image, style_image
+
+
+def image_loader(image_name):
+    loader = transforms.Compose([
+        transforms.Resize(384),
+        transforms.CenterCrop(384),
+        transforms.ToTensor()])
+    image = Image.open(image_name)
+    image = loader(image).unsqueeze(0)
+    return image.to(torch.float)
 
 
 async def to_bytes(input_img):

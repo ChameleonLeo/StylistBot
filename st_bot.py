@@ -1,12 +1,11 @@
 import asyncio
 import threading
 
-from decouple import config
-from aiogram import types, executor, Bot
+from aiogram.utils.executor import start_webhook
 
 import st_model
 from images import Images, images, get_file_path, set_random_default_set
-from main import bot, dp, menu, back_to_menu, upload_button, style_button
+from main import *
 
 
 @dp.message_handler(commands=['start'])
@@ -153,7 +152,7 @@ async def styling(chat, content, style):
     except Exception as ex:
         await aux_bot.send_message(chat, "Something went wrong. Please, try later.",
                                    reply_markup=back_to_menu)
-        await aux_bot.send_message(config('error_notification'), "Error occured: " + str(ex))
+        await aux_bot.send_message(config('ERROR_NOTIFICATION'), "Error occured: " + str(ex))
 
     await aux_bot.send_message(chat, "That's it! Let's style something else?",
                                reply_markup=upload_button)
@@ -161,4 +160,13 @@ async def styling(chat, content, style):
     del images[chat]
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    # executor.start_polling(dp, skip_updates=True)
+    start_webhook(
+        dispatcher=dp,
+        webhook_path=WEBHOOK_PATH,
+        on_startup=on_startup,
+        on_shutdown=on_shutdown,
+        skip_updates=True,
+        host=WEBAPP_HOST,
+        port=WEBAPP_PORT,
+    )

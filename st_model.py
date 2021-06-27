@@ -1,25 +1,12 @@
 import asyncio
 import copy
-from PIL import Image
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as func
 import torch.optim as optim
 
-import torchvision.transforms as transforms
-
-from images import to_bytes
-
-
-def image_loader(image_name):
-    loader = transforms.Compose([
-        transforms.Resize(384),
-        transforms.CenterCrop(384),
-        transforms.ToTensor()])
-    image = Image.open(image_name)
-    image = loader(image).unsqueeze(0)
-    return image.to(torch.float)
+from images import to_bytes, image_loader
 
 
 class ContentLoss(nn.Module):

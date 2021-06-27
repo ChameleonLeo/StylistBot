@@ -1,14 +1,35 @@
 import logging
 from aiogram import types, Bot, Dispatcher
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from decouple import config
 
 
 bot = Bot(token=config('API_TOKEN'))
-dp = Dispatcher(bot)
+dp = Dispatcher(bot, storage=MemoryStorage())
 
 
 logging.basicConfig(level=logging.DEBUG,
                     format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(asctime)s] %(message)s')
+
+
+API_TOKEN = config('API_TOKEN')
+APP_NAME = config('APP_NAME')
+WEBHOOK_HOST = f'https://{APP_NAME}.herokuapp.com'
+WEBHOOK_PATH = f'/webhook/{API_TOKEN}'
+WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
+WEBAPP_HOST = '0.0.0.0'  # or ip
+WEBAPP_PORT = int(config("PORT"))
+# dp.middleware.setup(LoggingMiddleware())
+
+
+async def on_startup(dispatcher):
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+
+
+async def on_shutdown(app):
+    await bot.close()
+    await dp.storage.close()
+    await dp.storage.wait_closed()
 
 
 menu = types.InlineKeyboardMarkup()
