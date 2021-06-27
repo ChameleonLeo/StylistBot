@@ -1,7 +1,5 @@
 import asyncio
-from io import BytesIO
 import copy
-import numpy as np
 from PIL import Image
 
 import torch
@@ -10,6 +8,8 @@ import torch.nn.functional as func
 import torch.optim as optim
 
 import torchvision.transforms as transforms
+
+from images import to_bytes
 
 
 def image_loader(image_name):
@@ -122,7 +122,7 @@ def get_input_optimizer(input_img):
 
 
 async def run_style_transfer(content_img, style_img,
-                             num_steps=300, style_weight=100000, content_weight=1):
+                             num_steps=70, style_weight=100000, content_weight=1):
     content_img = image_loader(content_img)
     style_img = image_loader(style_img)
     input_img = content_img.clone()
@@ -163,7 +163,7 @@ async def run_style_transfer(content_img, style_img,
             loss.backward()
 
             run[0] += 1
-            if run[0] % 50 == 0:
+            if run[0] % 10 == 0:
                 print("step {}:".format(run))
                 print('Style Loss: {:4f} Content Loss: {:4f}'.format(
                     style_score, content_score))
@@ -174,10 +174,6 @@ async def run_style_transfer(content_img, style_img,
         optimizer.step(closure)
 
     input_img.data.clamp_(0, 1)
-    output_img = np.rollaxis(input_img.detach().numpy()[0], 0, 3)
-    result = Image.fromarray(np.uint8(output_img * 255))
-    result_to_bytes = BytesIO()
-    result.save(result_to_bytes, 'JPEG')
-    result_to_bytes.seek(0)
+    result_to_bytes = await to_bytes(input_img)
 
     return result_to_bytes
