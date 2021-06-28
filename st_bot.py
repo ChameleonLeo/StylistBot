@@ -27,9 +27,10 @@ async def about(message: types.Message):
     await message.reply("ChameleonStylistBot.\nPowered by aiogram.\nInspired by DLS.", reply_markup=menu)
 
 
-# Handle '\help' command or messages with random text
+# Handle '\help' command or messages with random text and other content types
 @dp.message_handler(commands=['help'])
-@dp.message_handler(content_types=['text'])
+@dp.message_handler(content_types=['text', 'audio', 'video', 'video_note',
+                                   'voice', 'location', 'contact', 'sticker'])
 async def show_menu(message: types.Message):
     await message.reply("That's what we can do:", reply_markup=menu)
 

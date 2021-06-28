@@ -18,7 +18,6 @@ wh_path = f'/webhook/{config("API_TOKEN")}'
 wh_url = f'{wh_host}{wh_path}'
 wa_host = '0.0.0.0'
 wa_port = int(config("PORT"))
-# dp.middleware.setup(LoggingMiddleware())
 
 
 async def on_startup(dispatcher):

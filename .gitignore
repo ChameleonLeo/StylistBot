@@ -1,6 +1,6 @@
 # Environments
 .env
-py_async/*
+venv/*
 .idea/*
 __pycache__/*
 
