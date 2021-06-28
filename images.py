@@ -44,8 +44,8 @@ async def set_random_default_set():
 # Func for transformating image to tensor
 async def image_loader(image_name):
     loader = transforms.Compose([
-        transforms.Resize(384),
-        transforms.CenterCrop(384),
+        transforms.Resize(224),  # 384
+        transforms.CenterCrop(224),
         transforms.ToTensor()])
     image = Image.open(image_name)
     image = loader(image).unsqueeze(0)
