@@ -9,38 +9,40 @@ import torch.optim as optim
 from images import to_bytes, image_loader
 
 
+# MSE loss of content (target and content images)
 class ContentLoss(nn.Module):
-    # среднеквадратичная ошибка контента input'а и target'а
     def __init__(self, target):
         super(ContentLoss, self).__init__()
         self.target = target.detach()
         self.loss = func.mse_loss(self.target, self.target)
 
-    def forward(self, inp):
-        self.loss = func.mse_loss(inp, self.target)
-        return inp
+    def forward(self, content):
+        self.loss = func.mse_loss(content, self.target)
+        return content
 
 
-def gram_matrix(inp):
-    batch_size, h, w, f_map_num = inp.size()
-    features = inp.view(batch_size * h, w * f_map_num)
+# Gram matrix for computing style loss
+def gram_matrix(image):
+    batch_size, h, w, f_map_num = image.size()
+    features = image.view(batch_size * h, w * f_map_num)
     gram = torch.mm(features, features.t())
     return gram.div(batch_size * h * w * f_map_num)
 
 
+# MSE loss of style (target and style images)
 class StyleLoss(nn.Module):
-    # среднеквадратичная ошибка стиля input'а и target'а
     def __init__(self, target_feature):
         super(StyleLoss, self).__init__()
         self.target = gram_matrix(target_feature).detach()
         self.loss = func.mse_loss(self.target, self.target)
 
-    def forward(self, inp):
-        gram = gram_matrix(inp)
+    def forward(self, style):
+        gram = gram_matrix(style)
         self.loss = func.mse_loss(gram, self.target)
-        return inp
+        return style
 
 
+# Normalization of images (for transforming according to vgg indexes)
 class Normalization(nn.Module):
     def __init__(self, mean, std):
         super(Normalization, self).__init__()
@@ -51,92 +53,75 @@ class Normalization(nn.Module):
         return (img - self.mean) / self.std
 
 
-def get_style_model_and_losses(content_img, style_img, conv_net,
-                               normalization_mean, normalization_std):
-    conv_net = copy.deepcopy(conv_net)
+# Function to compose Generating model (for creating output image)
+async def compose_model(content_img, style_img, vgg):
+    normalization_mean = torch.tensor([0.485, 0.456, 0.406])
+    normalization_std = torch.tensor([0.229, 0.224, 0.225])
+    generating_model = nn.Sequential(Normalization(normalization_mean, normalization_std))
 
-    content_layers_default = ['conv_4']
-    style_layers_default = ['conv_1', 'conv_2', 'conv_3', 'conv_4', 'conv_5']
-
-    normalization = Normalization(normalization_mean, normalization_std)
-
-    content_losses = []
-    style_losses = []
-
-    model = nn.Sequential(normalization)
-
-    i = 0
+    conv_net = copy.deepcopy(vgg)
+    layers = ['conv0', 'conv1', 'conv2', 'conv3', 'conv4']
+    content_losses, style_losses = [], []
+    conv = 0
     for layer in conv_net.children():
         if isinstance(layer, nn.Conv2d):
-            i += 1
-            name = 'conv_{}'.format(i)
+            conv += 1
+            name = 'conv{}'.format(conv)
         elif isinstance(layer, nn.ReLU):
-            name = 'relu_{}'.format(i)
+            name = 'relu{}'.format(conv)
             layer = nn.ReLU(inplace=False)
         elif isinstance(layer, nn.MaxPool2d):
-            name = 'pool_{}'.format(i)
-        elif isinstance(layer, nn.BatchNorm2d):
-            name = 'bn_{}'.format(i)
+            name = 'pool{}'.format(conv)
+            layer = nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
         else:
             raise RuntimeError('Unrecognized layer: {}'.format(layer.__class__.__name__))
 
-        model.add_module(name, layer)
-
-        if name in content_layers_default:
-            target = model(content_img).detach()
+        generating_model.add_module(name, layer)
+        # Adding loss classes after appropriate convolutional layers
+        if name == 'conv3':
+            target = generating_model(content_img).detach()
             content_loss = ContentLoss(target)
-            model.add_module("content_loss_{}".format(i), content_loss)
+            generating_model.add_module("content_loss{}".format(conv), content_loss)
             content_losses.append(content_loss)
-
-        if name in style_layers_default:
-            target_feature = model(style_img).detach()
+        if name in layers:
+            target_feature = generating_model(style_img).detach()
             style_loss = StyleLoss(target_feature)
-            model.add_module("style_loss_{}".format(i), style_loss)
+            generating_model.add_module("style_loss{}".format(conv), style_loss)
             style_losses.append(style_loss)
 
-    for i in range(len(model) - 1, -1, -1):
-        if isinstance(model[i], ContentLoss) or isinstance(model[i], StyleLoss):
-            break
-
-    model = model[:(i + 1)]
-
-    return model, style_losses, content_losses
+    return generating_model, style_losses, content_losses
 
 
-def get_input_optimizer(input_img):
-    optimizer = optim.LBFGS([input_img.requires_grad_()])
-    return optimizer
-
-
-async def run_style_transfer(content_img, style_img,
-                             num_steps=70, style_weight=100000, content_weight=1):
-    content_img = image_loader(content_img)
-    style_img = image_loader(style_img)
+# The main training process:
+# - features extraction from provided images by vgg19;
+# - generating of output "styled" image by composed model.
+async def transferring(content_img, style_img, num_steps=100,
+                       style_weight=100000, content_weight=1):
+    content_img = await image_loader(content_img)
+    style_img = await image_loader(style_img)
     input_img = content_img.clone()
 
-    normalization_mean = torch.tensor([0.485, 0.456, 0.406])
-    normalization_std = torch.tensor([0.229, 0.224, 0.225])
+    pretrained_net = torch.load('vgg/vgg19_cutted_5l.pth', map_location='cpu').eval()
+    gen_model, style_losses, content_losses = await compose_model(content_img, style_img,
+                                                                  pretrained_net)
+    optimizer = optim.LBFGS([input_img.requires_grad_()])
 
-    conv_net = torch.load('vgg/vgg19.pth').eval()
+    # Initializing of vars for saving best output (with minimal loss)
+    best_score, best_content_score = 1e3, 1e3
+    best_output, redefine = input_img.clone(), False
 
-    model, style_losses, content_losses = get_style_model_and_losses(content_img, style_img, conv_net,
-                                                                     normalization_mean, normalization_std)
-    optimizer = get_input_optimizer(input_img)
-
-    print('Optimizing..')
+    print('Computing losses...')
     run = [0]
     while run[0] <= num_steps:
-
         await asyncio.sleep(0)
 
         def closure():
             input_img.data.clamp_(0, 1)
-
             optimizer.zero_grad()
-
-            model(input_img)
+            gen_model(input_img)
 
             style_score = 0
+            global content_score
             content_score = 0
             for sl in style_losses:
                 style_score += sl.loss
@@ -145,22 +130,36 @@ async def run_style_transfer(content_img, style_img,
 
             style_score *= style_weight
             content_score *= content_weight
-
             loss = style_score + content_score
             loss.backward()
 
             run[0] += 1
-            if run[0] % 10 == 0:
-                print("step {}:".format(run))
-                print('Style Loss: {:4f} Content Loss: {:4f}'.format(
-                    style_score, content_score))
-                print()
+            if run[0] % 20 == 0:
+                print(f"Step {run[0]}: style loss {style_score:.4f}, "
+                      f"content loss {content_score:.4f}\n")
 
             return style_score + content_score
 
+        total_loss = closure()
+        # Check score: if current loss is lower then best, redefine output image
+        if (best_score > total_loss) and (best_content_score > content_score):
+            best_output = input_img.clone()
+            best_score = total_loss
+            best_content_score = content_score
+            best_output_step = run[0]
+            # Redefine only if trained (to avoid redefining at first steps)
+            if best_output_step > 50:
+                redefine = True
+
         optimizer.step(closure)
 
-    input_img.data.clamp_(0, 1)
-    result_to_bytes = await to_bytes(input_img)
+    print("Final modifications of styling...")
+    # If score at the last step worse then best, return output image with the best score
+    if redefine:
+        output = best_output.data.clamp_(0, 1)
+        print(f"Image redefined, best score was at step {best_output_step}")
+    else:
+        output = input_img.data.clamp_(0, 1)
+    output_to_bytes = await to_bytes(output)
 
-    return result_to_bytes
+    return output_to_bytes

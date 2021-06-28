@@ -19,7 +19,7 @@ Examples of input and output images:
 <div align="center">
 <div class="input">
 <img src="images/content/still_life1.jpg" width="400" alt="content_example2">
-<img src="images/style/munch3.jpg" height="300" alt="style_example2">
+<img src="images/style/munch3.jpg" height="350" alt="style_example2">
 </div>
 <img src="images/results/photo5339309317695845068.jpg" width="400" alt="result_example2">
 </div>
@@ -27,6 +27,7 @@ Examples of input and output images:
 <br>
 <br>
 3. Landscape by Salvador Dali
+<br>
 <div align="center">
 <div class="input">
 <img src="images/content/landscape0.jpg" width="400" alt="content_example3">
