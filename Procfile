@@ -1,1 +1,1 @@
-web: gunicorn Caturday.wsgi --log-file -
+web: python3 st_bot.py --log-file -

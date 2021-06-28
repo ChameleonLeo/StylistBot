@@ -9,7 +9,7 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 
 
 # Enable logging
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.WARNING,  # DEBUG
                     format=u'%(filename)s [LINE:%(lineno)d] #%(levelname)-8s [%(asctime)s] %(message)s')
 
 # Initialize webhook and webapp settings
