@@ -4,9 +4,9 @@ import threading
 # from aiogram.utils import executor
 from aiogram.utils.executor import start_webhook
 
-import st_model
+import model
 from images import Images, images, get_file_path, set_random_default_set
-from main import *
+from utils import *
 
 
 @dp.message_handler(commands=['start'])
@@ -173,7 +173,7 @@ async def styling(chat, content, style):
     # Define auxiliary session for async processing
     aux_bot = Bot(token=config("API_TOKEN"))
     try:
-        styled = await st_model.transferring(content, style)
+        styled = await model.transferring(content, style)
         await aux_bot.send_photo(chat, photo=styled)
 
     except Exception as ex:

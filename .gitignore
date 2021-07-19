@@ -1,11 +1,11 @@
 # Environments
-#.env
+.env
 venv/*
 .idea/*
 __pycache__/*
 
 # Aux files
-#requirements.txt
+requirements.txt
 #runtime.txt
 #Procfile
 

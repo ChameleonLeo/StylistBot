@@ -1,6 +1,6 @@
 import os
 import random
-from main import bot
+from utils import bot
 
 import torchvision.transforms as transforms
 from PIL import Image
@@ -44,8 +44,8 @@ async def set_random_default_set():
 # Func for transformating image to tensor
 async def image_loader(image_name):
     loader = transforms.Compose([
-        transforms.Resize(224),  # 384
-        transforms.CenterCrop(224),
+        transforms.Resize(384),  # 224
+        transforms.CenterCrop(384),
         transforms.ToTensor()])
     image = Image.open(image_name)
     image = loader(image).unsqueeze(0)

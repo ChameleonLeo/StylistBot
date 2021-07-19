@@ -1,6 +1,9 @@
 # StylistBot
 
 Bot's username is @ChameleonStylistBot
+The Bot is deployed on a Heroku server using the idle concept (the app goes to sleep after 30 minutes of inactivity).
+Thus, it takes about a minute for the Bot to wake up. Please, be patient when contacting
+Bot for the first time per day.
 
 Examples of input and output images:
 <br>
@@ -27,6 +30,7 @@ Examples of input and output images:
 <br>
 <br>
 3. Landscape by Salvador Dali
+<br>
 <br>
 <div align="center">
 <div class="input">
