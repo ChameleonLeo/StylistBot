@@ -1,1 +1,1 @@
-web: python3 st_bot.py --log-file -
+web: python3 bot.py --log-file -

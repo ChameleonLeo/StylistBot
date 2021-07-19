@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import heroku3
 
 # from aiogram.utils import executor
 from aiogram.utils.executor import start_webhook
@@ -186,6 +187,13 @@ async def styling(chat, content, style):
                                reply_markup=upload_button)
     await aux_bot.close()
     del images[chat]
+    # The part below is needed just because of Heroku memory restictions
+    if len(images) != 0:
+        for chat_id in images.keys():
+            bot.send_message(chat_id, "Sorry, I need to be restarted to become more efficient."
+                                      "\nPlease, try again 3 minutes later",
+                             reply_markup=menu)
+    heroku3.from_key(config("API_HEROKU")).apps()[0].dynos()[0].restart()
 
 if __name__ == '__main__':
     # executor.start_polling(dp, skip_updates=True)
