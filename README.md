@@ -1,13 +1,13 @@
 # NeuralStylist
 
-Bot is avaliable by username @NeuralStylistBot
+Bot is avaliable by username @NeuralStylistBot<br>
 Bot is powered by Heroku server using the idle concept (the app goes to sleep after 30 minutes of inactivity).
 Thus, it takes about a minute for the Bot to wake up. Please, be patient when contacting Bot for the first time per day.
 
 *An important fact:*
 Model's performance intentionally decreased, because of RAM restrictions on free Heroku account.
-The result would be not impressive (picture resolution is too low).
-Bot was deployed just for demonstration of functionality.
+The result would be not impressive (picture resolution is too low).<br>
+Bot was deployed just for functionality demonstration.
 Locally (depending on device characteristics) it works much better and faster.
 
 Examples of input and output images:
