@@ -95,7 +95,7 @@ async def compose_model(content_img, style_img, vgg):
 # The main training process:
 # - features extraction from provided images by vgg19;
 # - generating of output "styled" image by composed model.
-async def transferring(content_img, style_img, num_steps=100,
+async def transferring(content_img, style_img, num_steps=200,
                        style_weight=100000, content_weight=1):
     content_img = await image_loader(content_img)
     style_img = await image_loader(style_img)
@@ -104,54 +104,48 @@ async def transferring(content_img, style_img, num_steps=100,
     pretrained_net = torch.load('vgg/vgg19_cutted_5l.pth', map_location='cpu').eval()
     gen_model, style_losses, content_losses = await compose_model(content_img, style_img,
                                                                   pretrained_net)
-    optimizer = optim.LBFGS([input_img.requires_grad_()])
+    optimizer = optim.Adam([input_img.requires_grad_()], lr=0.05)
 
     # Initializing of vars for saving best output (with minimal loss)
-    best_score, best_content_score = 1e3, 1e3
+    best_score, best_content_score, best_output_step = 1e3, 1e3, 0
     best_output, redefine = input_img.clone(), False
 
     print('Computing losses...')
-    run = [0]
-    while run[0] <= num_steps:
+    step = 0
+    while step <= num_steps:
         await asyncio.sleep(0)
 
-        def closure():
-            input_img.data.clamp_(0, 1)
-            optimizer.zero_grad()
-            gen_model(input_img)
+        input_img.data.clamp_(0, 1)
+        optimizer.zero_grad()
+        gen_model(input_img)
 
-            style_score = 0
-            global content_score
-            content_score = 0
-            for sl in style_losses:
-                style_score += sl.loss
-            for cl in content_losses:
-                content_score += cl.loss
+        style_score, content_score = 0, 0
+        for sl in style_losses:
+            style_score += sl.loss
+        for cl in content_losses:
+            content_score += cl.loss
 
-            style_score *= style_weight
-            content_score *= content_weight
-            loss = style_score + content_score
-            loss.backward()
+        style_score *= style_weight
+        content_score *= content_weight
+        total_loss = style_score + content_score
+        total_loss.backward()
 
-            run[0] += 1
-            if run[0] % 20 == 0:
-                print(f"Step {run[0]}: style loss {style_score:.4f}, "
-                      f"content loss {content_score:.4f}\n")
+        step += 1
+        if step % 10 == 0:
+            print(f"Step {step}: style loss {style_score:.4f}, "
+                  f"content loss {content_score:.4f}\n")
 
-            return style_score + content_score
-
-        total_loss = closure()
         # Check score: if current loss is lower then best, redefine output image
         if (best_score > total_loss) and (best_content_score > content_score):
             best_output = input_img.clone()
             best_score = total_loss
             best_content_score = content_score
-            best_output_step = run[0]
+            best_output_step = step
             # Redefine only if trained (to avoid redefining at first steps)
             if best_output_step > 50:
                 redefine = True
 
-        optimizer.step(closure)
+        optimizer.step()
 
     print("Final modifications of styling...")
     # If score at the last step worse then best, return output image with the best score
@@ -161,5 +155,7 @@ async def transferring(content_img, style_img, num_steps=100,
     else:
         output = input_img.data.clamp_(0, 1)
     output_to_bytes = await to_bytes(output)
+
+    del input_img, best_output, output
 
     return output_to_bytes

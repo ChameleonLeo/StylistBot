@@ -1,4 +1,5 @@
 import logging
+import os
 from aiogram import types, Bot, Dispatcher
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from decouple import config
@@ -17,7 +18,7 @@ wh_host = f'https://{config("APP_NAME")}.herokuapp.com'
 wh_path = f'/webhook/{config("API_TOKEN")}'
 wh_url = f'{wh_host}{wh_path}'
 wa_host = '0.0.0.0'
-wa_port = int(config("PORT"))
+wa_port = int(os.environ.get("PORT", config("APP_PORT")))
 
 
 async def on_startup(dispatcher):
@@ -33,14 +34,10 @@ async def on_shutdown(app):
 menu = types.InlineKeyboardMarkup()
 menu.add(types.InlineKeyboardButton("See recommendations", callback_data='recommendation'))
 menu.add(types.InlineKeyboardButton("Try on default set", callback_data='default_set'))
-menu.add(types.InlineKeyboardButton("Let's get started styling!", callback_data='upload'))
+menu.add(types.InlineKeyboardButton("Upload images", callback_data='upload'))
 
 back_to_menu = types.InlineKeyboardMarkup()
 back_to_menu.add(types.InlineKeyboardButton("Back to menu", callback_data='show_menu'))
-
-upload_button = types.InlineKeyboardMarkup()
-upload_button.add(types.InlineKeyboardButton('Upload images', callback_data='upload'))
-upload_button.add(types.InlineKeyboardButton('Menu', callback_data='show_menu'))
 
 style_button = types.InlineKeyboardMarkup()
 style_button.add(types.InlineKeyboardButton("Style it!", callback_data='style_it'))

@@ -1,9 +1,9 @@
 import asyncio
 import threading
-import heroku3
+import traceback
 
-# from aiogram.utils import executor
-from aiogram.utils.executor import start_webhook
+from aiogram.utils import executor
+# from aiogram.utils.executor import start_webhook
 
 import model
 from images import Images, images, get_file_path, set_random_default_set
@@ -12,20 +12,18 @@ from utils import *
 
 @dp.message_handler(commands=['start'])
 async def greeting(message: types.Message):
-    await message.reply("Hi! I'm ChameleonStylistBot!\n"
-                        "\nI'll transfer texture from your style image to content image.\n"
-                        "You can see menu by command /help or Menu button.")
+    await message.reply("Hi! I'm NeuralStylistBot!\n"
+                        "I'll transfer texture from your style image to content image.")
     await bot.send_message(message.chat.id,
-                           "Or let's start just now!\nPush 'Upload images' "
-                           "to make me able to receive your images.",
-                           reply_markup=upload_button)
+                           "Push 'Upload images' to make me able to receive your images.",
+                           reply_markup=menu)
     # Inserting of user's id to special dict for further handling his images
     images[message.chat.id] = Images()
 
 
 @dp.message_handler(commands=['about'])
 async def about(message: types.Message):
-    await message.reply("ChameleonStylistBot.\nPowered by aiogram.\nInspired by DLS.", reply_markup=menu)
+    await message.reply("Made by Chameleon Leonard.\nInspired by DLS.\nPowered by Aiogram.", reply_markup=menu)
 
 
 # Handle '\help' command or messages with random text and other content types
@@ -109,7 +107,7 @@ async def discard_images(callback_query: types.CallbackQuery):
     images[callback_query.message.chat.id].style_image = 0
     await bot.answer_callback_query(callback_query.id)
     await callback_query.message.edit_text("Images discarded, let's upload something else?")
-    await callback_query.message.edit_reply_markup(reply_markup=upload_button)
+    await callback_query.message.edit_reply_markup(reply_markup=menu)
 
 
 # Receiving of files from user
@@ -119,7 +117,7 @@ async def upload_images(message: types.Message):
         # Inform user about necessity of self identification
         if message.chat.id not in images:
             await message.reply("Please, firstly push 'Upload images' to make me able to receive your images.",
-                                reply_markup=upload_button)
+                                reply_markup=menu)
             return
         # Get the path of received image
         image = await get_file_path(message)
@@ -127,7 +125,7 @@ async def upload_images(message: types.Message):
         # Inform user if bot didn't recognize file format
         if not image:
             await message.reply("Unrecognized format of file. Please provide me with image.",
-                                reply_markup=upload_button)
+                                reply_markup=menu)
             return
 
         # Put the images to special dict
@@ -155,7 +153,7 @@ async def upload_images(message: types.Message):
 @dp.callback_query_handler(lambda button: button.data == 'style_it')
 async def styling_handler(callback_query: types.CallbackQuery):
     await bot.answer_callback_query(callback_query.id)
-    await callback_query.message.edit_text("I started the process. It may take few minutes.\n"
+    await callback_query.message.edit_text("I started the process.\nIt may take few minutes.\n"
                                            "Actually, you can close the chat, "
                                            "I'll send you a message when it get ready.")
     chat_id = callback_query.message.chat.id
@@ -176,32 +174,28 @@ async def styling(chat, content, style):
     try:
         styled = await model.transferring(content, style)
         await aux_bot.send_photo(chat, photo=styled)
+        del styled
 
     except Exception as ex:
         await aux_bot.send_message(chat, "Something went wrong. Please, try later.",
                                    reply_markup=back_to_menu)
         # Notification for creator about unexpected results
         await aux_bot.send_message(config("ERROR_NOTIFICATION"), "Error occured: " + str(ex))
+        print(traceback.format_exc())
 
     await aux_bot.send_message(chat, "That's it! Let's style something else?",
-                               reply_markup=upload_button)
+                               reply_markup=menu)
     await aux_bot.close()
     del images[chat]
-    # The part below is needed just because of Heroku memory restictions
-    if len(images) != 0:
-        for chat_id in images.keys():
-            bot.send_message(chat_id, "Sorry, I need to be restarted to become more efficient."
-                                      "\nPlease, try again 3 minutes later",
-                             reply_markup=menu)
-    heroku3.from_key(config("API_HEROKU")).apps()[0].dynos()[0].restart()
+
 
 if __name__ == '__main__':
-    # executor.start_polling(dp, skip_updates=True)
-    start_webhook(
+    executor.start_polling(dp, skip_updates=True)
+    """start_webhook(
         dispatcher=dp,
         skip_updates=True,
         webhook_path=wh_path,
         host=wa_host,
         port=wa_port,
         on_startup=on_startup,
-        on_shutdown=on_shutdown)
+        on_shutdown=on_shutdown)"""

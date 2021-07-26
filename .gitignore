@@ -3,8 +3,9 @@
 venv/*
 .idea/*
 __pycache__/*
+.git/*
 
 # Aux files
-#requirements.txt
-#runtime.txt
-#Procfile
+requirements.txt
+runtime.txt
+Procfile

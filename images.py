@@ -44,11 +44,11 @@ async def set_random_default_set():
 # Func for transformating image to tensor
 async def image_loader(image_name):
     loader = transforms.Compose([
-        transforms.Resize(384),  # 224
-        transforms.CenterCrop(384),
+        transforms.Resize(512),
+        transforms.CenterCrop(512),
         transforms.ToTensor()])
-    image = Image.open(image_name)
-    image = loader(image).unsqueeze(0)
+    with Image.open(image_name) as image:
+        image = loader(image).unsqueeze(0)
     return image.to(torch.float)
 
 
